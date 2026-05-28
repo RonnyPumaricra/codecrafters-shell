@@ -10,11 +10,13 @@ pub fn main(init: std.process.Init) !void {
 
     stdin_interface = stdin_interface;
 
-    // TODO: Uncomment the code below to pass the first stage
-    try stdout_interface.print("$ ", .{});
-    try stdout_interface.flush();
+    // REPL: Read-Eval-Print-Loop
+    while (true) {
+        try stdout_interface.print("$ ", .{});
+        try stdout_interface.flush();
 
-    const cmd = try stdin_interface.takeDelimiter('\n') orelse return;
-    try stdout_interface.print("{s}: command not found\n", .{cmd});
-    try stdout_interface.flush();
+        const cmd = try stdin_interface.takeDelimiter('\n') orelse return;
+        try stdout_interface.print("{s}: command not found\n", .{cmd});
+        try stdout_interface.flush();
+    }
 }
