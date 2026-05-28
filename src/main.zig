@@ -26,6 +26,19 @@ pub fn main(init: std.process.Init) !void {
                 try stdout_interface.print("{s}\n", .{cmd[5..]});
                 try stdout_interface.flush();
             }
+        } else if (std.mem.startsWith(u8, cmd, "type")) {
+            if (cmd.len >= 5) {
+                if (std.mem.eql(u8, "echo", cmd[5..]) or
+                    std.mem.eql(u8, "type", cmd[5..]) or
+                    std.mem.eql(u8, "exit", cmd[5..]))
+                {
+                    try stdout_interface.print("{s} is of type builtin\n", .{cmd[5..]});
+                    try stdout_interface.flush();
+                } else {
+                    try stdout_interface.print("{s}: not found\n", .{cmd[5..]});
+                    try stdout_interface.flush();
+                }
+            }
         } else {
             try stdout_interface.print("{s}: command not found\n", .{cmd});
             try stdout_interface.flush();
