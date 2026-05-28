@@ -20,7 +20,15 @@ pub fn main(init: std.process.Init) !void {
         if (std.mem.eql(u8, "exit", cmd)) {
             break;
         }
-        try stdout_interface.print("{s}: command not found\n", .{cmd});
-        try stdout_interface.flush();
+
+        if (std.mem.startsWith(u8, cmd, "echo")) {
+            if (cmd.len >= 5) {
+                try stdout_interface.print("{s}\n", .{cmd[5..]});
+                try stdout_interface.flush();
+            }
+        } else {
+            try stdout_interface.print("{s}: command not found\n", .{cmd});
+            try stdout_interface.flush();
+        }
     }
 }
