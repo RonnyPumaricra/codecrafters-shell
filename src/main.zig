@@ -32,7 +32,7 @@ pub fn main(init: std.process.Init) !void {
                     std.mem.eql(u8, "type", cmd[5..]) or
                     std.mem.eql(u8, "exit", cmd[5..]))
                 {
-                    try stdout_interface.print("{s} is of type builtin\n", .{cmd[5..]});
+                    try stdout_interface.print("{s} is a shell builtin\n", .{cmd[5..]});
                     try stdout_interface.flush();
                 } else {
                     try stdout_interface.print("{s}: not found\n", .{cmd[5..]});
