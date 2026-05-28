@@ -16,6 +16,10 @@ pub fn main(init: std.process.Init) !void {
         try stdout_interface.flush();
 
         const cmd = try stdin_interface.takeDelimiter('\n') orelse return;
+
+        if (std.mem.eql(u8, "exit", cmd)) {
+            break;
+        }
         try stdout_interface.print("{s}: command not found\n", .{cmd});
         try stdout_interface.flush();
     }
