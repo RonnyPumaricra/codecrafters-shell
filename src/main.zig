@@ -57,7 +57,7 @@ pub fn main(init: std.process.Init) !void {
                             break;
                         }
                     } else {
-                        try stdout_interface.print("{s}: command not found\n", .{cmd[5..]});
+                        try stdout_interface.print("{s}: not found\n", .{cmd[5..]});
                         try stdout_interface.flush();
                     }
                 }
