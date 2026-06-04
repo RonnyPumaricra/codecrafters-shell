@@ -79,14 +79,6 @@ pub fn main(init: std.process.Init) !void {
                 while (argv_it.next()) |arg| {
                     _ = try argv.append(init.gpa, arg);
                 }
-                var file_path: std.ArrayList(u8) = try .initCapacity(init.gpa, 128);
-                defer file_path.deinit(init.gpa);
-
-                try file_path.appendSlice(init.gpa, single_path);
-                try file_path.appendSlice(init.gpa, "/");
-                try file_path.appendSlice(init.gpa, argv.items[0]);
-
-                argv.items[0] = file_path.items;
 
                 var child = std.process.spawn(io, .{
                     .argv = argv.items,
