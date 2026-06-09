@@ -10,6 +10,7 @@ pub const ShellContext = struct {
     should_quit: *bool,
     cwd_buf: []u8,
     cwd_len: *usize,
+    env: std.process.Environ,
 };
 
 pub const Command = struct {
@@ -118,7 +119,7 @@ pub fn pwd_command(shell_context: ShellContext) !void {
     try stdout.flush();
 }
 
-fn change_directory(io: Io, path: []const u8, parent: []const u8, out_buf: []u8) !usize {
+fn change_directory(io: Io, env: std.process.Environ, path: []const u8, parent: []const u8, out_buf: []u8) !usize {
     switch (path[0]) {
         '/' => {
             const new_dir = try std.Io.Dir.openDirAbsolute(io, path, .{});
@@ -128,7 +129,15 @@ fn change_directory(io: Io, path: []const u8, parent: []const u8, out_buf: []u8)
             return path.len;
         },
         '~' => {
-            return error.Todo;
+            const HOME = env.getPosix("HOME") orelse {
+                return error.NotFound;
+            };
+
+            const curr = try std.Io.Dir.openDirAbsolute(io, HOME, .{});
+            defer curr.close(io);
+
+            @memcpy(out_buf[0..HOME.len], HOME);
+            return HOME.len;
         },
         else => {
             const curr = try std.Io.Dir.openDirAbsolute(io, parent, .{});
@@ -153,9 +162,10 @@ pub fn cd_command(shell_context: ShellContext) !void {
     const path = shell_context.cmd[3..];
     const stdout = shell_context.stdout;
     const cwd_buf = shell_context.cwd_buf;
+    const env = shell_context.env;
     const cwd = cwd_buf[0..shell_context.cwd_len.*];
 
-    const new_size = change_directory(io, path, cwd, cwd_buf) catch {
+    const new_size = change_directory(io, env, path, cwd, cwd_buf) catch {
         try stdout.print("cd: {s}: No such file or directory\n", .{path});
         try stdout.flush();
         return;

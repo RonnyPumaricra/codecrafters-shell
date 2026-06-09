@@ -36,6 +36,7 @@ pub fn main(init: std.process.Init) !void {
             .should_quit = &should_quit,
             .cwd_buf = &cwd_buf,
             .cwd_len = &cwd_len,
+            .env = init.minimal.environ,
         })) {
             var argv: std.ArrayList([]const u8) = try .initCapacity(init.gpa, 64);
             defer argv.deinit(init.gpa);
