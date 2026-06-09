@@ -20,7 +20,6 @@ pub fn main(init: std.process.Init) !void {
         defer cwd.close(io);
         break :cwd_blk try cwd.realPath(io, &cwd_buf);
     };
-    // const cwd_pathname: []const u8 = cwd_buf[0..cwd_len];
 
     // REPL: Read-Eval-Print-Loop
     while (!should_quit) {

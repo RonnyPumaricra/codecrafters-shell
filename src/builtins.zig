@@ -34,6 +34,10 @@ pub const all_commands = [_]Command{
         .name = "pwd",
         .func = pwd_command,
     },
+    .{
+        .name = "cd",
+        .func = cd_command,
+    },
 };
 
 pub fn execute_command(shell_context: ShellContext) !bool {
@@ -112,4 +116,22 @@ pub fn pwd_command(shell_context: ShellContext) !void {
 
     try stdout.print("{s}\n", .{cwd_pathname});
     try stdout.flush();
+}
+
+pub fn cd_command(shell_context: ShellContext) !void {
+    const io = shell_context.io;
+    const path = shell_context.cmd[3..];
+    const stdout = shell_context.stdout;
+    const cwd_buf = shell_context.cwd_buf;
+
+    const new_dir = std.Io.Dir.openDirAbsolute(io, path, .{}) catch {
+        try stdout.print("cd: {s}: No such file or directory\n", .{path});
+        try stdout.flush();
+        return;
+    };
+    defer new_dir.close(io);
+
+    // Actualizar cwd
+    @memmove(cwd_buf[0..path.len], path);
+    shell_context.cwd_len.* = path.len;
 }
