@@ -118,20 +118,47 @@ pub fn pwd_command(shell_context: ShellContext) !void {
     try stdout.flush();
 }
 
+fn change_directory(io: Io, path: []const u8, parent: []const u8, out_buf: []u8) !usize {
+    switch (path[0]) {
+        '/' => {
+            const new_dir = try std.Io.Dir.openDirAbsolute(io, path, .{});
+            defer new_dir.close(io);
+
+            @memcpy(out_buf[0..path.len], path);
+            return path.len;
+        },
+        '~' => {
+            return error.Todo;
+        },
+        else => {
+            const curr = try std.Io.Dir.openDirAbsolute(io, parent, .{});
+            defer curr.close(io);
+
+            const new_dir = try std.Io.Dir.openDir(
+                curr,
+                io,
+                path,
+                .{},
+            );
+            defer new_dir.close(io);
+
+            const size = try new_dir.realPath(io, out_buf);
+            return size;
+        },
+    }
+}
+
 pub fn cd_command(shell_context: ShellContext) !void {
     const io = shell_context.io;
     const path = shell_context.cmd[3..];
     const stdout = shell_context.stdout;
     const cwd_buf = shell_context.cwd_buf;
+    const cwd = cwd_buf[0..shell_context.cwd_len.*];
 
-    const new_dir = std.Io.Dir.openDirAbsolute(io, path, .{}) catch {
+    const new_size = change_directory(io, path, cwd, cwd_buf) catch {
         try stdout.print("cd: {s}: No such file or directory\n", .{path});
         try stdout.flush();
         return;
     };
-    defer new_dir.close(io);
-
-    // Actualizar cwd
-    @memmove(cwd_buf[0..path.len], path);
-    shell_context.cwd_len.* = path.len;
+    shell_context.cwd_len.* = new_size;
 }
