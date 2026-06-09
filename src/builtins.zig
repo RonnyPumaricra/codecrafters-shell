@@ -8,6 +8,8 @@ pub const ShellContext = struct {
     PATH: []const u8,
     stdout: *Io.Writer,
     should_quit: *bool,
+    cwd_buf: []u8,
+    cwd_len: *usize,
 };
 
 pub const Command = struct {
@@ -102,14 +104,10 @@ pub fn exit_command(shell_context: ShellContext) !void {
 }
 
 pub fn pwd_command(shell_context: ShellContext) !void {
-    const io = shell_context.io;
     const stdout = shell_context.stdout;
+    const cwd_buf = shell_context.cwd_buf;
+    const cwd_len = shell_context.cwd_len.*;
 
-    var cwd = try std.Io.Dir.cwd().openDir(io, ".", .{});
-    defer cwd.close(io);
-
-    var cwd_buf: [256]u8 = undefined;
-    const cwd_len = try cwd.realPath(io, &cwd_buf);
     const cwd_pathname: []const u8 = cwd_buf[0..cwd_len];
 
     try stdout.print("{s}\n", .{cwd_pathname});

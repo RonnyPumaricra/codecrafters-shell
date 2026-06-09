@@ -14,6 +14,14 @@ pub fn main(init: std.process.Init) !void {
     const PATH = init.minimal.environ.getPosix("PATH").?;
     var should_quit = false;
 
+    var cwd_buf: [256]u8 = undefined;
+    var cwd_len = cwd_blk: {
+        var cwd = try std.Io.Dir.cwd().openDir(io, ".", .{});
+        defer cwd.close(io);
+        break :cwd_blk try cwd.realPath(io, &cwd_buf);
+    };
+    // const cwd_pathname: []const u8 = cwd_buf[0..cwd_len];
+
     // REPL: Read-Eval-Print-Loop
     while (!should_quit) {
         try stdout_interface.print("$ ", .{});
@@ -27,6 +35,8 @@ pub fn main(init: std.process.Init) !void {
             .stdout = stdout_interface,
             .cmd = cmd,
             .should_quit = &should_quit,
+            .cwd_buf = &cwd_buf,
+            .cwd_len = &cwd_len,
         })) {
             var argv: std.ArrayList([]const u8) = try .initCapacity(init.gpa, 64);
             defer argv.deinit(init.gpa);
