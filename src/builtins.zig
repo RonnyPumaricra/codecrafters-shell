@@ -105,13 +105,11 @@ pub fn pwd_command(shell_context: ShellContext) !void {
     const io = shell_context.io;
     const stdout = shell_context.stdout;
 
-    var cwd = try std.Io.Dir.cwd().openDir(io, ".", .{
-        .iterate = true,
-    });
+    var cwd = try std.Io.Dir.cwd().openDir(io, ".", .{});
     defer cwd.close(io);
 
     var cwd_buf: [256]u8 = undefined;
-    const cwd_len = try std.Io.Dir.cwd().realPath(io, &cwd_buf);
+    const cwd_len = try cwd.realPath(io, &cwd_buf);
     const cwd_pathname: []const u8 = cwd_buf[0..cwd_len];
 
     try stdout.print("{s}\n", .{cwd_pathname});
