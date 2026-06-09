@@ -34,14 +34,14 @@ pub const all_commands = [_]Command{
     },
 };
 
-pub fn execute_command(shell_context: ShellContext) !void {
+pub fn execute_command(shell_context: ShellContext) !bool {
     for (all_commands) |command| {
         if (std.mem.startsWith(u8, shell_context.cmd, command.name)) {
             try command.func(shell_context);
-            return;
+            return true;
         }
     }
-    return error.CommandNotFound;
+    return false;
 }
 
 pub fn echo_command(shell_context: ShellContext) !void {

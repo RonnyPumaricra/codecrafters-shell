@@ -21,13 +21,13 @@ pub fn main(init: std.process.Init) !void {
 
         const cmd = try stdin_interface.takeDelimiter('\n') orelse return;
 
-        builtins.execute_command(.{
+        if (!try builtins.execute_command(.{
             .io = io,
             .PATH = PATH,
             .stdout = stdout_interface,
             .cmd = cmd,
             .should_quit = &should_quit,
-        }) catch {
+        })) {
             var argv: std.ArrayList([]const u8) = try .initCapacity(init.gpa, 64);
             defer argv.deinit(init.gpa);
 
@@ -44,6 +44,6 @@ pub fn main(init: std.process.Init) !void {
                 continue;
             };
             _ = try child.wait(io);
-        };
+        }
     }
 }
