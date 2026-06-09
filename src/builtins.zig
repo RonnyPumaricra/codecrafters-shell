@@ -28,6 +28,10 @@ pub const all_commands = [_]Command{
         .name = "exit",
         .func = exit_command,
     },
+    .{
+        .name = "pwd",
+        .func = pwd_command,
+    },
 };
 
 pub fn execute_command(shell_context: ShellContext) !void {
@@ -95,4 +99,21 @@ pub fn type_command(shell_context: ShellContext) !void {
 
 pub fn exit_command(shell_context: ShellContext) !void {
     shell_context.should_quit.* = true;
+}
+
+pub fn pwd_command(shell_context: ShellContext) !void {
+    const io = shell_context.io;
+    const stdout = shell_context.stdout;
+
+    var cwd = try std.Io.Dir.cwd().openDir(io, ".", .{
+        .iterate = true,
+    });
+    defer cwd.close(io);
+
+    var cwd_buf: [256]u8 = undefined;
+    const cwd_len = try std.Io.Dir.cwd().realPath(io, &cwd_buf);
+    const cwd_pathname: []const u8 = cwd_buf[0..cwd_len];
+
+    try stdout.print("{s}\n", .{cwd_pathname});
+    try stdout.flush();
 }
