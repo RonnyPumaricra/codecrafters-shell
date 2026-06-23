@@ -31,7 +31,6 @@ pub fn read(self: *Scanner, alc: std.mem.Allocator, source: []const u8) !void {
     for (source, 0..) |ch, i| {
         _ = i;
         const curr: Char = .from(ch);
-        std.debug.print("CH: {c} {any}\n", .{ ch, curr });
 
         if (curr == .single_quote) {
             // Descartar la primera comilla simple
@@ -43,7 +42,6 @@ pub fn read(self: *Scanner, alc: std.mem.Allocator, source: []const u8) !void {
         }
 
         if (inside_single_quotes) {
-            std.debug.print("  SINGLE Q: add {{{c}}}\n", .{ch});
             try self.text.append(alc, ch);
             len += 1;
             continue;
