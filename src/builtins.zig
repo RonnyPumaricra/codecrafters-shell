@@ -26,12 +26,19 @@ pub const all_commands = [_]Command{
     },
 };
 
-pub fn echo_command(_: Io, sh: *Shell, source: []const u8) !void {
+pub fn echo_command(_: Io, sh: *Shell, source: [][]const u8) !void {
     const stdout = sh.stdout;
-    if (source.len >= 5) {
-        try stdout.print("{s}\n", .{source[5..]});
-        try stdout.flush();
+
+    for (source, 0..) |word, i| {
+        if (i == 0) continue;
+        try stdout.print("{s}", .{word});
+        if (i < source.len - 1) {
+            try stdout.print(" ", .{});
+        }
     }
+
+    try stdout.print("\n", .{});
+    try stdout.flush();
 }
 
 fn find_executable(io: Io, file: []const u8, PATH: []const u8) !?[]const u8 {
@@ -54,33 +61,38 @@ fn find_executable(io: Io, file: []const u8, PATH: []const u8) !?[]const u8 {
     return null;
 }
 
-pub fn type_command(io: Io, sh: *Shell, source: []const u8) !void {
+pub fn type_command(io: Io, sh: *Shell, source: [][]const u8) !void {
     const PATH = sh.env.getPosix("PATH").?;
     const stdout = sh.stdout;
-    if (source.len >= 5) {
-        for (all_commands) |builtin_command| {
-            if (std.mem.eql(u8, builtin_command.name, source[5..])) {
-                try stdout.print("{s} is a shell builtin\n", .{source[5..]});
-                try stdout.flush();
-                break;
-            }
-        } else {
-            if (try find_executable(io, source[5..], PATH)) |exec_dir_path| {
-                try stdout.print("{s} is {s}/{s}\n", .{ source[5..], exec_dir_path, source[5..] });
-                try stdout.flush();
-            } else {
-                try stdout.print("{s}: not found\n", .{source[5..]});
-                try stdout.flush();
-            }
+
+    if (source.len < 2) {
+        try stdout.print("\n", .{});
+        try stdout.flush();
+        return;
+    }
+
+    const query = source[1];
+
+    for (all_commands) |sh_cmd| {
+        if (std.mem.eql(u8, sh_cmd.name, query)) {
+            try stdout.print("{s} is a shell builtin\n", .{query});
+            try stdout.flush();
+            break;
         }
+    } else if (try find_executable(io, query, PATH)) |dir| {
+        try stdout.print("{s} is {s}/{s}\n", .{ query, dir, query });
+        try stdout.flush();
+    } else {
+        try stdout.print("{s}: not found\n", .{query});
+        try stdout.flush();
     }
 }
 
-pub fn exit_command(_: Io, sh: *Shell, _: []const u8) !void {
+pub fn exit_command(_: Io, sh: *Shell, _: [][]const u8) !void {
     sh.should_quit = true;
 }
 
-pub fn pwd_command(_: Io, sh: *Shell, _: []const u8) !void {
+pub fn pwd_command(_: Io, sh: *Shell, _: [][]const u8) !void {
     const stdout = sh.stdout;
 
     try stdout.print("{s}\n", .{sh.cwd.slice()});
@@ -124,9 +136,14 @@ fn change_directory(io: Io, sh: *Shell, path: []const u8) !void {
     }
 }
 
-pub fn cd_command(io: Io, sh: *Shell, source: []const u8) !void {
-    const path = source[3..];
+pub fn cd_command(io: Io, sh: *Shell, source: [][]const u8) !void {
     const stdout = sh.stdout;
+    if (source.len < 2) {
+        try stdout.print("\n", .{});
+        try stdout.flush();
+        return;
+    }
+    const path = source[1];
 
     change_directory(io, sh, path) catch {
         try stdout.print("cd: {s}: No such file or directory\n", .{path});

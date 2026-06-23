@@ -16,7 +16,7 @@ cwd: string.Varchar(256),
 
 pub const Command = struct {
     name: []const u8,
-    func: *const fn (Io, *Shell, []const u8) anyerror!void,
+    func: *const fn (Io, *Shell, [][]const u8) anyerror!void,
 };
 
 pub fn startup(shell: *Shell, io: Io) !void {
@@ -41,7 +41,7 @@ fn run(sh: *Shell, io: Io, source: []const u8) !void {
     const exe = scanner.tokens()[0];
 
     if (getCommand(exe)) |sh_cmd| {
-        try sh_cmd.func(io, sh, source);
+        try sh_cmd.func(io, sh, scanner.tokens());
         return;
     }
 
