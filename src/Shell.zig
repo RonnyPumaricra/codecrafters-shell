@@ -1,0 +1,66 @@
+const Shell = @This();
+
+const std = @import("std");
+const string = @import("string.zig");
+const Scanner = @import("shell/Scanner.zig");
+const builtins = @import("builtins.zig");
+const Io = std.Io;
+
+stdin: *Io.Reader,
+stdout: *Io.Writer,
+
+alc: std.mem.Allocator,
+env: std.process.Environ,
+should_quit: bool,
+cwd: string.Varchar(256),
+
+pub const Command = struct {
+    name: []const u8,
+    func: *const fn (Io, *Shell, []const u8) anyerror!void,
+};
+
+pub fn startup(shell: *Shell, io: Io) !void {
+    while (!shell.should_quit) {
+        try shell.stdout.print("$ ", .{});
+        try shell.stdout.flush();
+
+        const cmd = try shell.stdin.takeDelimiter('\n') orelse return;
+
+        try shell.run(io, cmd);
+    }
+}
+
+fn run(sh: *Shell, io: Io, source: []const u8) !void {
+    var scanner: Scanner = try .init(sh.alc);
+    defer scanner.deinit(sh.alc);
+
+    try scanner.read(sh.alc, source);
+
+    // El primer argumento es el ejecutable
+    if (scanner.tokens().len == 0) return;
+    const exe = scanner.tokens()[0];
+
+    if (getCommand(exe)) |sh_cmd| {
+        try sh_cmd.func(io, sh, source);
+        return;
+    }
+
+    sh.runSystem(io, scanner.tokens()) catch {
+        try sh.stdout.print("{s}: not found\n", .{exe});
+        try sh.stdout.flush();
+    };
+}
+
+fn getCommand(cmd: []const u8) ?Command {
+    for (builtins.all_commands) |sh_cmd| {
+        if (std.mem.eql(u8, sh_cmd.name, cmd)) return sh_cmd;
+    }
+    return null;
+}
+
+fn runSystem(_: Shell, io: Io, tokens: [][]const u8) !void {
+    var child = try std.process.spawn(io, .{
+        .argv = tokens,
+    });
+    _ = try child.wait(io);
+}
