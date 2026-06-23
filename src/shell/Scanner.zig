@@ -109,6 +109,7 @@ const Char = enum {
         if (ch == ' ') {
             return .whitespace;
         }
-        unreachable;
+        return .alpha;
+        // unreachable;
     }
 };

@@ -20,6 +20,13 @@ pub const Command = struct {
 };
 
 pub fn startup(shell: *Shell, io: Io) !void {
+    shell.cwd.len = cwd_blk: {
+        var cwd_dir = try Io.Dir.cwd().openDir(io, ".", .{});
+        defer cwd_dir.close(io);
+
+        break :cwd_blk try cwd_dir.realPath(io, &shell.cwd.buf);
+    };
+
     while (!shell.should_quit) {
         try shell.stdout.print("$ ", .{});
         try shell.stdout.flush();

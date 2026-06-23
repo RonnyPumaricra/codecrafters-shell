@@ -108,6 +108,7 @@ fn change_directory(io: Io, sh: *Shell, path: []const u8) !void {
             defer new_dir.close(io);
 
             @memcpy(sh.cwd.buf[0..path.len], path);
+            sh.cwd.len = path.len;
         },
         '~' => {
             const HOME = env.getPosix("HOME") orelse {
@@ -118,6 +119,7 @@ fn change_directory(io: Io, sh: *Shell, path: []const u8) !void {
             defer curr.close(io);
 
             @memcpy(sh.cwd.buf[0..HOME.len], HOME);
+            sh.cwd.len = HOME.len;
         },
         else => {
             const curr = try std.Io.Dir.openDirAbsolute(io, parent, .{});
@@ -131,7 +133,7 @@ fn change_directory(io: Io, sh: *Shell, path: []const u8) !void {
             );
             defer new_dir.close(io);
 
-            _ = try new_dir.realPath(io, &sh.cwd.buf);
+            sh.cwd.len = try new_dir.realPath(io, &sh.cwd.buf);
         },
     }
 }
