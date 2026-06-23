@@ -22,13 +22,32 @@ pub fn read(self: *Scanner, alc: std.mem.Allocator, source: []const u8) !void {
     // Variables para leer source
     var start: usize = 0;
     var len: usize = 0;
-    // var i: usize = 0;
 
     // tokenizer.text tendrá el texto sin caracteres innecesarios: espacios, comillas, backslash
     var txt_start: usize = 0;
 
+    var inside_single_quotes = false;
+
     for (source, 0..) |ch, i| {
+        _ = i;
         const curr: Char = .from(ch);
+        std.debug.print("CH: {c} {any}\n", .{ ch, curr });
+
+        if (curr == .single_quote) {
+            // Descartar la primera comilla simple
+            if (!inside_single_quotes) {
+                start += 1;
+            }
+            inside_single_quotes = !inside_single_quotes;
+            continue;
+        }
+
+        if (inside_single_quotes) {
+            std.debug.print("  SINGLE Q: add {{{c}}}\n", .{ch});
+            try self.text.append(alc, ch);
+            len += 1;
+            continue;
+        }
 
         switch (curr) {
             .whitespace => {
@@ -48,9 +67,9 @@ pub fn read(self: *Scanner, alc: std.mem.Allocator, source: []const u8) !void {
                 len += 1;
             },
         }
-        if (i == source.len - 1 and 0 < len) {
-            try self.words.append(alc, self.text.items[txt_start .. txt_start + len]);
-        }
+    }
+    if (0 < len) {
+        try self.words.append(alc, self.text.items[txt_start .. txt_start + len]);
     }
 }
 
