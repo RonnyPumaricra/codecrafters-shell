@@ -6,19 +6,23 @@ const Io = std.Io;
 text: std.ArrayList(u8),
 words: std.ArrayList([]const u8),
 
+alc: std.mem.Allocator,
+
 pub fn init(alc: std.mem.Allocator) !Scanner {
     return .{
         .text = try .initCapacity(alc, 256),
         .words = try .initCapacity(alc, 64),
+        .alc = alc,
     };
 }
 
-pub fn deinit(self: *Scanner, alc: std.mem.Allocator) void {
-    self.text.deinit(alc);
-    self.words.deinit(alc);
+pub fn deinit(S: *Scanner) void {
+    S.text.deinit(S.alc);
+    S.words.deinit(S.alc);
 }
 
-pub fn read(self: *Scanner, alc: std.mem.Allocator, source: []const u8) !void {
+pub fn read(S: *Scanner, source: []const u8) !void {
+    const alc = S.alc;
     // Variables para leer source
     var start: usize = 0;
     var len: usize = 0;
