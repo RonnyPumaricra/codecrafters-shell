@@ -38,10 +38,10 @@ pub fn startup(shell: *Shell, io: Io) !void {
 }
 
 fn run(sh: *Shell, io: Io, source: []const u8) !void {
-    var scanner: Scanner = try .init(sh.alc);
-    defer scanner.deinit(sh.alc);
+    var scanner: Scanner = try .init(sh.alc, source);
+    defer scanner.deinit();
 
-    try scanner.read(sh.alc, source);
+    try scanner.read();
 
     // El primer argumento es el ejecutable
     if (scanner.tokens().len == 0) return;
