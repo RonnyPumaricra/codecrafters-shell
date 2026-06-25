@@ -32,18 +32,17 @@ pub fn deinit(S: *Scanner) void {
 }
 
 pub fn read(S: *Scanner) !void {
-    const source = S.source;
-
-    while (S.i < source.len) {
+    while (!S.atEnd()) {
         const ch = S.advance();
         const curr: Char = .from(ch);
 
-        if (curr == .single_quote) {
-            try S.readSingleQuotes(source);
-            continue;
-        }
-
         switch (curr) {
+            .single_quote => {
+                try S.readSingleQuotes();
+            },
+            .double_quote => {
+                try S.readDoubleQuotes();
+            },
             .whitespace => {
                 try S.addWord();
             },
@@ -57,8 +56,8 @@ pub fn read(S: *Scanner) !void {
 
 /// Se halló una comilla simple, añadir palabra hasta final de comilla. La
 /// primera comilla ya fue omitida.
-fn readSingleQuotes(S: *Scanner, source: []const u8) !void {
-    while (S.i < source.len) {
+fn readSingleQuotes(S: *Scanner) !void {
+    while (!S.atEnd()) {
         const ch = S.advance();
         const curr: Char = .from(ch);
 
@@ -73,9 +72,25 @@ fn readSingleQuotes(S: *Scanner, source: []const u8) !void {
     // de la última comilla
 }
 
+fn readDoubleQuotes(S: *Scanner) !void {
+    while (!S.atEnd()) {
+        const ch = S.advance();
+        const curr: Char = .from(ch);
+
+        if (curr == .double_quote) {
+            break;
+        }
+        try S.addCharacter(ch);
+    }
+}
+
 fn advance(S: *Scanner) u8 {
     defer S.i += 1;
     return S.source[S.i];
+}
+
+fn atEnd(S: Scanner) bool {
+    return S.i >= S.source.len;
 }
 
 fn addCharacter(S: *Scanner, ch: u8) !void {
