@@ -3,6 +3,14 @@ const Scanner = @This();
 const std = @import("std");
 const Io = std.Io;
 
+/// Índice de lectura de fuente
+i: usize = 0,
+
+/// Ubicación de una palabra en la copia local
+wordstart: usize = 0,
+wordlen: usize = 0,
+
+/// Copia local
 text: std.ArrayList(u8),
 words: std.ArrayList([]const u8),
 source: []const u8,
@@ -25,57 +33,65 @@ pub fn deinit(S: *Scanner) void {
 
 pub fn read(S: *Scanner) !void {
     const source = S.source;
-    const alc = S.alc;
-    // Variables para leer source
-    var start: usize = 0;
-    var len: usize = 0;
 
-    // tokenizer.text tendrá el texto sin caracteres innecesarios: espacios, comillas, backslash
-    var txt_start: usize = 0;
-
-    var inside_single_quotes = false;
-
-    for (source, 0..) |ch, i| {
-        _ = i;
+    while (S.i < source.len) {
+        const ch = S.advance();
         const curr: Char = .from(ch);
 
         if (curr == .single_quote) {
-            // Descartar la primera comilla simple
-            if (!inside_single_quotes) {
-                start += 1;
-            }
-            inside_single_quotes = !inside_single_quotes;
-            continue;
-        }
-
-        if (inside_single_quotes) {
-            try self.text.append(alc, ch);
-            len += 1;
+            try S.readSingleQuotes(source);
             continue;
         }
 
         switch (curr) {
             .whitespace => {
-                if (len == 0) {
-                    start += 1;
-                    continue;
-                }
-
-                try self.words.append(alc, self.text.items[txt_start .. txt_start + len]);
-                start += len + 1;
-                txt_start += len;
-                len = 0;
-                continue;
+                try S.addWord();
             },
             else => {
-                try self.text.append(alc, ch);
-                len += 1;
+                try S.addCharacter(ch);
             },
         }
     }
-    if (0 < len) {
-        try self.words.append(alc, self.text.items[txt_start .. txt_start + len]);
+    try S.addWord();
+}
+
+/// Se halló una comilla simple, añadir palabra hasta final de comilla. La
+/// primera comilla ya fue omitida.
+fn readSingleQuotes(S: *Scanner, source: []const u8) !void {
+    while (S.i < source.len) {
+        const ch = S.advance();
+        const curr: Char = .from(ch);
+
+        if (curr == .single_quote) {
+            break;
+        }
+
+        try S.addCharacter(ch);
     }
+
+    // La última comilla ya fue omitida, el índice apunta al carácter después
+    // de la última comilla
+}
+
+fn advance(S: *Scanner) u8 {
+    defer S.i += 1;
+    return S.source[S.i];
+}
+
+fn addCharacter(S: *Scanner, ch: u8) !void {
+    try S.text.append(S.alc, ch);
+    S.wordlen += 1;
+}
+
+fn addWord(S: *Scanner) !void {
+    if (S.wordlen == 0) return;
+
+    try S.words.append(
+        S.alc,
+        S.text.items[S.wordstart .. S.wordstart + S.wordlen],
+    );
+    S.wordstart += S.wordlen;
+    S.wordlen = 0;
 }
 
 pub fn tokens(self: Scanner) [][]const u8 {
