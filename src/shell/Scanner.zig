@@ -80,6 +80,24 @@ fn readDoubleQuotes(S: *Scanner) !void {
         const ch = S.advance();
         const curr: Char = .from(ch);
 
+        if (curr == .backslash) {
+            const nxt = S.peek();
+
+            switch (Char.from(nxt)) {
+                .double_quote,
+                .backslash,
+                => {
+                    try S.addCharacter(nxt);
+                    _ = S.advance();
+                },
+                else => {
+                    try S.addCharacter(ch);
+                },
+            }
+
+            continue;
+        }
+
         if (curr == .double_quote) {
             break;
         }
@@ -94,6 +112,10 @@ fn escapeWithBackslash(S: *Scanner) !void {
 
 fn advance(S: *Scanner) u8 {
     defer S.i += 1;
+    return S.source[S.i];
+}
+
+fn peek(S: *Scanner) u8 {
     return S.source[S.i];
 }
 
