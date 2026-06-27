@@ -37,6 +37,9 @@ pub fn read(S: *Scanner) !void {
         const curr: Char = .from(ch);
 
         switch (curr) {
+            .backslash => {
+                try S.escapeWithBackslash();
+            },
             .single_quote => {
                 try S.readSingleQuotes();
             },
@@ -82,6 +85,11 @@ fn readDoubleQuotes(S: *Scanner) !void {
         }
         try S.addCharacter(ch);
     }
+}
+
+fn escapeWithBackslash(S: *Scanner) !void {
+    const nxt = S.advance();
+    try S.addCharacter(nxt);
 }
 
 fn advance(S: *Scanner) u8 {
@@ -144,6 +152,9 @@ const Char = enum {
         }
         if (ch == ' ') {
             return .whitespace;
+        }
+        if (ch == '\\') {
+            return .backslash;
         }
         return .alpha;
         // unreachable;
