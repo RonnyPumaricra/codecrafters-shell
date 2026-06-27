@@ -81,7 +81,7 @@ fn readDoubleQuotes(S: *Scanner) !void {
         const curr: Char = .from(ch);
 
         if (curr == .backslash) {
-            const nxt = S.peek();
+            const nxt = S.peek() orelse continue;
 
             switch (Char.from(nxt)) {
                 .double_quote,
@@ -115,8 +115,11 @@ fn advance(S: *Scanner) u8 {
     return S.source[S.i];
 }
 
-fn peek(S: *Scanner) u8 {
-    return S.source[S.i];
+fn peek(S: *Scanner) ?u8 {
+    if (S.i < S.source.len) {
+        return S.source[S.i];
+    }
+    return null;
 }
 
 fn atEnd(S: Scanner) bool {
