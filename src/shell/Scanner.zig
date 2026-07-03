@@ -15,6 +15,9 @@ text: std.ArrayList(u8),
 words: std.ArrayList([]const u8),
 source: []const u8,
 
+stdout: ?[]const u8 = null,
+stderr: ?[]const u8 = null,
+
 alc: std.mem.Allocator,
 
 pub fn init(alc: std.mem.Allocator, source: []const u8) !Scanner {
@@ -33,113 +36,177 @@ pub fn deinit(S: *Scanner) void {
 
 pub fn read(S: *Scanner) !void {
     while (!S.atEnd()) {
-        const ch = S.advance();
+        if (Char.from(S.peek()) == .whitespace) {
+            S.toss();
+            continue;
+        }
+        const token = try S.readToken();
+
+        switch (token) {
+            .text => |tk| {
+                try S.appendWord(tk.str);
+            },
+            else => continue,
+        }
+        S.toss();
+    }
+}
+
+const Token = union(TokenType) {
+    text: struct {
+        str: []const u8,
+    },
+    to_stdout,
+    to_stderr,
+};
+
+const TokenType = enum {
+    text,
+    to_stdout,
+    to_stderr,
+};
+
+/// Las operaciones subordinadas de `readToken` no deben avanzar más allá del
+/// rango de frase que le pertenece, de ese rol se encarga esta función con
+/// `peek` y `toss` al inicio y final del bucle. No siempre se descartará el
+/// caracter actual, porque este puede iniciar el siguiente token. En ese caso
+/// se termina de leer el token actual.
+fn readToken(S: *Scanner) !Token {
+    while (!S.atEnd()) {
+        const ch = S.peek();
         const curr: Char = .from(ch);
 
+        // Se descarta el caracter actual
         switch (curr) {
             .backslash => {
+                S.toss();
                 try S.escapeWithBackslash();
             },
             .single_quote => {
+                S.toss();
                 try S.readSingleQuotes();
             },
             .double_quote => {
+                S.toss();
                 try S.readDoubleQuotes();
             },
             .whitespace => {
-                try S.addWord();
+                break;
+            },
+            .greater_than => {
+                break;
             },
             else => {
-                try S.addCharacter(ch);
+                // if (ch == '1' and S.peekAt(1) == '>') {
+                //     break;
+                // }
+                // if (ch == '2' and S.peekAt(1) == '>') {
+                //     break;
+                // }
+                try S.saveCharacter(ch);
             },
         }
+
+        S.toss();
     }
-    try S.addWord();
+    // Retorna la palabra leída y escapada correctamente
+    return .{ .text = .{ .str = S.text.items[S.wordstart .. S.wordstart + S.wordlen] } };
 }
 
-/// Se halló una comilla simple, añadir palabra hasta final de comilla. La
-/// primera comilla ya fue omitida.
+fn appendWord(S: *Scanner, word: []const u8) !void {
+    try S.words.append(S.alc, word);
+    S.wordstart += S.wordlen;
+    S.wordlen = 0;
+}
+
+/// Asume que la primera comilla fue descartada.
 fn readSingleQuotes(S: *Scanner) !void {
     while (!S.atEnd()) {
-        const ch = S.advance();
+        const ch = S.peek();
         const curr: Char = .from(ch);
 
         if (curr == .single_quote) {
             break;
         }
 
-        try S.addCharacter(ch);
+        try S.saveCharacter(ch);
+        S.toss();
     }
-
-    // La última comilla ya fue omitida, el índice apunta al carácter después
-    // de la última comilla
 }
 
+/// Asume que la primera comilla fue descartada.
 fn readDoubleQuotes(S: *Scanner) !void {
     while (!S.atEnd()) {
-        const ch = S.advance();
-        const curr: Char = .from(ch);
+        const ch = S.peek();
 
-        if (curr == .backslash) {
-            const nxt = S.peek() orelse continue;
+        switch (Char.from(ch)) {
+            .backslash => {
+                try S.backslashInDoubleQuotes();
+                S.toss();
+            },
 
-            switch (Char.from(nxt)) {
-                .double_quote,
-                .backslash,
-                => {
-                    try S.addCharacter(nxt);
-                    _ = S.advance();
-                },
-                else => {
-                    try S.addCharacter(ch);
-                },
-            }
-
-            continue;
+            .double_quote => {
+                break;
+            },
+            else => {
+                try S.saveCharacter(ch);
+                S.toss();
+            },
         }
+    }
+}
 
-        if (curr == .double_quote) {
-            break;
-        }
-        try S.addCharacter(ch);
+/// El *backslash* aún no ha sido descartado. Si el siguiente carácter es `EOF`
+/// solo se imprime el `backslash`.
+fn backslashInDoubleQuotes(S: *Scanner) !void {
+    const ch = S.peek();
+    const nxt = S.peekAt(1);
+
+    switch (Char.from(nxt)) {
+        .double_quote,
+        .backslash,
+        => {
+            try S.saveCharacter(nxt);
+            S.toss();
+        },
+        else => {
+            try S.saveCharacter(ch);
+        },
     }
 }
 
 fn escapeWithBackslash(S: *Scanner) !void {
-    const nxt = S.advance();
-    try S.addCharacter(nxt);
+    const nxt = S.peek();
+    try S.saveCharacter(nxt);
 }
 
 fn advance(S: *Scanner) u8 {
-    defer S.i += 1;
+    defer S.toss();
     return S.source[S.i];
 }
 
-fn peek(S: *Scanner) ?u8 {
-    if (S.i < S.source.len) {
-        return S.source[S.i];
+fn toss(S: *Scanner) void {
+    S.i += 1;
+}
+
+fn peek(S: *Scanner) u8 {
+    return S.peekAt(0);
+}
+
+fn peekAt(S: *Scanner, offset: usize) u8 {
+    if (S.i + offset < S.source.len) {
+        return S.source[S.i + offset];
     }
-    return null;
+    return 0;
 }
 
 fn atEnd(S: Scanner) bool {
     return S.i >= S.source.len;
 }
 
-fn addCharacter(S: *Scanner, ch: u8) !void {
+fn saveCharacter(S: *Scanner, ch: u8) !void {
     try S.text.append(S.alc, ch);
     S.wordlen += 1;
-}
-
-fn addWord(S: *Scanner) !void {
-    if (S.wordlen == 0) return;
-
-    try S.words.append(
-        S.alc,
-        S.text.items[S.wordstart .. S.wordstart + S.wordlen],
-    );
-    S.wordstart += S.wordlen;
-    S.wordlen = 0;
 }
 
 pub fn tokens(self: Scanner) [][]const u8 {
@@ -153,6 +220,8 @@ const Char = enum {
     double_quote,
     backslash,
     whitespace,
+    greater_than,
+    eof,
 
     pub fn isAlpha(ch: u8) bool {
         return ('a' <= ch and ch <= 'z') or ('A' <= ch and ch <= 'Z');
@@ -181,6 +250,52 @@ const Char = enum {
         if (ch == '\\') {
             return .backslash;
         }
+        if (ch == '>') {
+            return .greater_than;
+        }
+        if (ch == 0) {
+            return .eof;
+        }
         return .alpha;
     }
 };
+
+const expectEqualStrings = std.testing.expectEqualStrings;
+const expectEqual = std.testing.expectEqual;
+
+test "BasicWords" {
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
+    const alc = gpa.allocator();
+
+    var sc = try Scanner.init(alc, "hello world");
+    defer sc.deinit();
+
+    try sc.read();
+
+    try expectEqualStrings("hello", sc.tokens()[0]);
+    try expectEqualStrings("world", sc.tokens()[1]);
+}
+
+test "DoubleQuotes" {
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
+    const alc = gpa.allocator();
+
+    var sc = try Scanner.init(alc, "hel\"lo wo\"rld");
+    defer sc.deinit();
+
+    try sc.read();
+
+    try expectEqualStrings("hello world", sc.tokens()[0]);
+}
+
+test "Backslash" {
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
+    const alc = gpa.allocator();
+
+    var sc = try Scanner.init(alc, "hello\\ world");
+    defer sc.deinit();
+
+    try sc.read();
+
+    try expectEqualStrings("hello world", sc.tokens()[0]);
+}
