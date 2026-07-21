@@ -8,7 +8,9 @@ const Io = std.Io;
 
 stdin: *Io.Reader,
 stdout: *Io.Writer,
+stderr: *Io.Writer,
 stdout_file: ?Io.File = null,
+stderr_file: ?Io.File = null,
 
 alc: std.mem.Allocator,
 env: std.process.Environ,
@@ -53,14 +55,20 @@ fn run(sh: *Shell, io: Io, source: []const u8) !void {
     defer sh.stdout = out_original;
 
     var out_writer: std.Io.File.Writer = undefined;
+    var err_writer: std.Io.File.Writer = undefined;
     const new_stdout = scanner.stdout != null;
+    const new_stderr = scanner.stderr != null;
 
     // Reinicia los archivos de redirección
     defer sh.stdout_file = null;
+    defer sh.stderr_file = null;
 
     // Cierra los archivos de redirección
-    defer if (new_stdout) {
-        sh.stdout_file.?.close(io);
+    defer if (sh.stdout_file) |out| {
+        out.close(io);
+    };
+    defer if (sh.stderr_file) |err| {
+        err.close(io);
     };
 
     // Actualiza temporalmente el stdout
@@ -68,6 +76,13 @@ fn run(sh: *Shell, io: Io, source: []const u8) !void {
         sh.stdout_file = try cwd.createFile(io, scanner.stdout.?, .{});
         out_writer = sh.stdout_file.?.writer(io, &.{});
         sh.stdout = &out_writer.interface;
+    }
+
+    // Actualiza temporalmente el stderr
+    if (new_stderr) {
+        sh.stderr_file = try cwd.createFile(io, scanner.stderr.?, .{});
+        err_writer = sh.stderr_file.?.writer(io, &.{});
+        sh.stderr = &err_writer.interface;
     }
 
     // El primer argumento es el ejecutable
@@ -99,6 +114,10 @@ fn runSystem(sh: Shell, io: Io, tokens: [][]const u8) !void {
             .inherit
         else
             .{ .file = sh.stdout_file.? },
+        .stderr = if (sh.stderr_file == null)
+            .inherit
+        else
+            .{ .file = sh.stderr_file.? },
     });
     _ = try child.wait(io);
 }
