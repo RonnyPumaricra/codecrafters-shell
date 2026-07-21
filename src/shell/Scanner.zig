@@ -35,6 +35,8 @@ pub fn deinit(S: *Scanner) void {
 }
 
 pub fn read(S: *Scanner) !void {
+    var prevToken: TokenType = .text;
+
     while (!S.atEnd()) {
         if (Char.from(S.peek()) == .whitespace) {
             S.toss();
@@ -42,13 +44,26 @@ pub fn read(S: *Scanner) !void {
         }
         const token = try S.readToken();
 
-        switch (token) {
-            .text => |tk| {
-                try S.appendWord(tk.str);
+        switch (prevToken) {
+            .to_stdout => {
+                if (token == .text) {
+                    S.stdout = token.text.str;
+                    S.resetWord();
+                }
             },
-            else => continue,
+            .to_stderr => {
+                if (token == .text) {
+                    S.stderr = token.text.str;
+                    S.resetWord();
+                }
+            },
+            .text => {
+                if (token == .text) {
+                    try S.appendWord(token.text.str);
+                }
+            },
         }
-        S.toss();
+        prevToken = token;
     }
 }
 
@@ -66,12 +81,21 @@ const TokenType = enum {
     to_stderr,
 };
 
-/// Las operaciones subordinadas de `readToken` no deben avanzar más allá del
-/// rango de frase que le pertenece, de ese rol se encarga esta función con
+fn readToken(S: *Scanner) !Token {
+    const red = try S.readRedirectToken();
+
+    if (red) |r| {
+        return r;
+    }
+    return try S.readTextToken();
+}
+
+/// Las operaciones subordinadas de `readTextToken` no deben avanzar más allá
+/// del rango de frase que le pertenece, de ese rol se encarga esta función con
 /// `peek` y `toss` al inicio y final del bucle. No siempre se descartará el
 /// caracter actual, porque este puede iniciar el siguiente token. En ese caso
 /// se termina de leer el token actual.
-fn readToken(S: *Scanner) !Token {
+fn readTextToken(S: *Scanner) !Token {
     while (!S.atEnd()) {
         const ch = S.peek();
         const curr: Char = .from(ch);
@@ -97,12 +121,6 @@ fn readToken(S: *Scanner) !Token {
                 break;
             },
             else => {
-                // if (ch == '1' and S.peekAt(1) == '>') {
-                //     break;
-                // }
-                // if (ch == '2' and S.peekAt(1) == '>') {
-                //     break;
-                // }
                 try S.saveCharacter(ch);
             },
         }
@@ -113,8 +131,33 @@ fn readToken(S: *Scanner) !Token {
     return .{ .text = .{ .str = S.text.items[S.wordstart .. S.wordstart + S.wordlen] } };
 }
 
+/// Intenta leer un token de redirección. Si no existe, los caracteres no se
+/// descartan.
+fn readRedirectToken(S: *Scanner) !?Token {
+    const first = S.peek();
+    const second = S.peekAt(1);
+
+    if (first == '>') {
+        S.toss();
+        return .to_stdout;
+    }
+
+    if ((first == '1' or first == '2') and second == '>') {
+        S.toss();
+        S.toss();
+
+        if (first == '1') return .to_stdout;
+        return .to_stderr;
+    }
+    return null;
+}
+
 fn appendWord(S: *Scanner, word: []const u8) !void {
     try S.words.append(S.alc, word);
+    S.resetWord();
+}
+
+fn resetWord(S: *Scanner) void {
     S.wordstart += S.wordlen;
     S.wordlen = 0;
 }

@@ -43,6 +43,27 @@ fn run(sh: *Shell, io: Io, source: []const u8) !void {
 
     try scanner.read();
 
+    // Inicializa el `cwd` para obtener a los archivos de stdout y stderr
+    const cwd = try std.Io.Dir.openDirAbsolute(io, sh.cwd.slice(), .{});
+    defer cwd.close(io);
+
+    const out_original = sh.stdout;
+    var out_file: std.Io.File = undefined;
+    var out_writer: std.Io.File.Writer = undefined;
+
+    defer if (scanner.stdout) |_| {
+        sh.stdout = out_original;
+        out_file.close(io);
+    };
+
+    if (scanner.stdout) |out_path| {
+        out_file = try cwd.openFile(io, out_path, .{
+            .mode = .write_only,
+        });
+        out_writer = out_file.writer(io, &.{});
+        sh.stdout = &out_writer.interface;
+    }
+
     // El primer argumento es el ejecutable
     if (scanner.tokens().len == 0) return;
     const exe = scanner.tokens()[0];
