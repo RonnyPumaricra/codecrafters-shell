@@ -8,6 +8,7 @@ const Io = std.Io;
 
 stdin: *Io.Reader,
 stdout: *Io.Writer,
+stdout_file: ?Io.File = null,
 
 alc: std.mem.Allocator,
 env: std.process.Environ,
@@ -47,19 +48,25 @@ fn run(sh: *Shell, io: Io, source: []const u8) !void {
     const cwd = try std.Io.Dir.openDirAbsolute(io, sh.cwd.slice(), .{});
     defer cwd.close(io);
 
+    // Reinicia el stdout
     const out_original = sh.stdout;
-    var out_file: std.Io.File = undefined;
+    defer sh.stdout = out_original;
+
     var out_writer: std.Io.File.Writer = undefined;
     const new_stdout = scanner.stdout != null;
 
+    // Reinicia los archivos de redirección
+    defer sh.stdout_file = null;
+
+    // Cierra los archivos de redirección
     defer if (new_stdout) {
-        sh.stdout = out_original;
-        out_file.close(io);
+        sh.stdout_file.?.close(io);
     };
 
+    // Actualiza temporalmente el stdout
     if (new_stdout) {
-        out_file = try cwd.createFile(io, scanner.stdout.?, .{});
-        out_writer = out_file.writer(io, &.{});
+        sh.stdout_file = try cwd.createFile(io, scanner.stdout.?, .{});
+        out_writer = sh.stdout_file.?.writer(io, &.{});
         sh.stdout = &out_writer.interface;
     }
 
@@ -85,9 +92,13 @@ fn getCommand(cmd: []const u8) ?Command {
     return null;
 }
 
-fn runSystem(_: Shell, io: Io, tokens: [][]const u8) !void {
+fn runSystem(sh: Shell, io: Io, tokens: [][]const u8) !void {
     var child = try std.process.spawn(io, .{
         .argv = tokens,
+        .stdout = if (sh.stdout_file == null)
+            .inherit
+        else
+            .{ .file = sh.stdout_file.? },
     });
     _ = try child.wait(io);
 }
