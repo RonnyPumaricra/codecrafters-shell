@@ -50,17 +50,15 @@ fn run(sh: *Shell, io: Io, source: []const u8) !void {
     const out_original = sh.stdout;
     var out_file: std.Io.File = undefined;
     var out_writer: std.Io.File.Writer = undefined;
+    const new_stdout = scanner.stdout != null;
 
-    defer if (scanner.stdout) |_| {
+    defer if (new_stdout) {
         sh.stdout = out_original;
         out_file.close(io);
     };
 
-    if (scanner.stdout) |out_path| {
-        out_file = try cwd.openFile(io, out_path, .{
-            .mode = .read_write,
-        });
-        try out_file.setLength(io, 0);
+    if (new_stdout) {
+        out_file = try cwd.createFile(io, scanner.stdout.?, .{});
         out_writer = out_file.writer(io, &.{});
         sh.stdout = &out_writer.interface;
     }
