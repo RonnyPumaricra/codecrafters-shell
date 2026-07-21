@@ -58,8 +58,9 @@ fn run(sh: *Shell, io: Io, source: []const u8) !void {
 
     if (scanner.stdout) |out_path| {
         out_file = try cwd.openFile(io, out_path, .{
-            .mode = .write_only,
+            .mode = .read_write,
         });
+        try out_file.setLength(io, 0);
         out_writer = out_file.writer(io, &.{});
         sh.stdout = &out_writer.interface;
     }
