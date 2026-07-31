@@ -16,6 +16,7 @@ words: std.ArrayList([]const u8),
 source: []const u8,
 
 stdout: ?[]const u8 = null,
+stdout_truncate: bool = false,
 stderr: ?[]const u8 = null,
 
 alc: std.mem.Allocator,
@@ -45,9 +46,17 @@ pub fn read(S: *Scanner) !void {
         const token = try S.readToken();
 
         switch (prevToken) {
-            .to_stdout => {
+            .truncate_stdout => {
                 if (token == .text) {
                     S.stdout = token.text.str;
+                    S.stdout_truncate = true;
+                    S.resetWord();
+                }
+            },
+            .append_stdout => {
+                if (token == .text) {
+                    S.stdout = token.text.str;
+                    S.stdout_truncate = false;
                     S.resetWord();
                 }
             },
@@ -71,13 +80,15 @@ const Token = union(TokenType) {
     text: struct {
         str: []const u8,
     },
-    to_stdout,
+    truncate_stdout,
+    append_stdout,
     to_stderr,
 };
 
 const TokenType = enum {
     text,
-    to_stdout,
+    truncate_stdout,
+    append_stdout,
     to_stderr,
 };
 
@@ -139,14 +150,28 @@ fn readRedirectToken(S: *Scanner) !?Token {
 
     if (first == '>') {
         S.toss();
-        return .to_stdout;
+
+        if (second == '>') {
+            S.toss();
+            return .append_stdout;
+        }
+        return .truncate_stdout;
     }
 
     if ((first == '1' or first == '2') and second == '>') {
         S.toss();
         S.toss();
 
-        if (first == '1') return .to_stdout;
+        const third = S.peek();
+        var append = false;
+        if (third == '>') {
+            S.toss();
+            append = true;
+        }
+
+        if (first == '1') {
+            return if (append) .append_stdout else .truncate_stdout;
+        }
         return .to_stderr;
     }
     return null;

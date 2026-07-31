@@ -73,8 +73,13 @@ fn run(sh: *Shell, io: Io, source: []const u8) !void {
 
     // Actualiza temporalmente el stdout
     if (new_stdout) {
-        sh.stdout_file = try cwd.createFile(io, scanner.stdout.?, .{});
+        sh.stdout_file = try cwd.createFile(io, scanner.stdout.?, .{
+            .truncate = scanner.stdout_truncate,
+        });
         out_writer = sh.stdout_file.?.writer(io, &.{});
+
+        const out_stat = try sh.stdout_file.?.stat(io);
+        try out_writer.seekTo(out_stat.size);
         sh.stdout = &out_writer.interface;
     }
 
