@@ -76,6 +76,7 @@ fn run(sh: *Shell, io: Io, source: []const u8) !void {
         sh.stdout_file = try cwd.createFile(io, scanner.stdout.?, .{
             .truncate = scanner.stdout_truncate,
         });
+        // sh.stdout_file.?.
         out_writer = sh.stdout_file.?.writer(io, &.{});
 
         const out_stat = try sh.stdout_file.?.stat(io);
